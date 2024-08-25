@@ -143,14 +143,22 @@ public class CalcServlet extends HttpServlet {
     }
 
     private int evaluateExpression(String expression, HttpSession session) throws ScriptException, UndefinedVariableException {
-        Enumeration<String> attributeNames = session.getAttributeNames();
-        while (attributeNames.hasMoreElements()) {
-            String varName = attributeNames.nextElement();
-            if (!"expression".equals(varName)) {
-                Object value = session.getAttribute(varName);
-                expression = expression.replaceAll("\\b" + varName + "\\b", value.toString());
+        // Ensure all variables are resolved before evaluating
+        boolean resolved;
+        do {
+            resolved = true;
+            Enumeration<String> attributeNames = session.getAttributeNames();
+            while (attributeNames.hasMoreElements()) {
+                String varName = attributeNames.nextElement();
+                if (!"expression".equals(varName)) {
+                    Object value = session.getAttribute(varName);
+                    if (expression.contains(varName)) {
+                        expression = expression.replaceAll("\\b" + varName + "\\b", value.toString());
+                        resolved = false;
+                    }
+                }
             }
-        }
+        } while (!resolved);
 
         // Check if there are any unresolved variables
         if (expression.matches(".*[a-zA-Z].*")) {
