@@ -13,16 +13,15 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @WebServlet(urlPatterns = {"/calc/*"})
 public class CalcServlet extends HttpServlet {
-
     private static final int MIN_VALUE = -10000;
     private static final int MAX_VALUE = 10000;
-    private final ReentrantLock lock = new ReentrantLock();  // Synchronize access to session attributes
+    private final ReentrantLock lock = new ReentrantLock();
 
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         String pathInfo = request.getPathInfo();
-        String body = request.getReader().lines().reduce("", (accumulator, actual) -> accumulator + actual).trim();
+        String body = request.getReader().lines().reduce("", String::concat).trim();
 
         if (body.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -30,7 +29,7 @@ public class CalcServlet extends HttpServlet {
             return;
         }
 
-        lock.lock();  // Synchronize session access
+        lock.lock();
         try {
             if ("/expression".equals(pathInfo)) {
                 handleExpressionPut(session, response, body, request.getRequestURI());
@@ -97,7 +96,7 @@ public class CalcServlet extends HttpServlet {
             return;
         }
 
-        lock.lock();  // Synchronize session access
+        lock.lock();
         try {
             try {
                 int result = evaluateExpression(expression, session);
@@ -120,7 +119,7 @@ public class CalcServlet extends HttpServlet {
         HttpSession session = request.getSession();
         String pathInfo = request.getPathInfo();
 
-        lock.lock();  // Synchronize session access
+        lock.lock();
         try {
             if ("/expression".equals(pathInfo)) {
                 if (session.getAttribute("expression") != null) {
