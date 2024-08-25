@@ -3,10 +3,12 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.*;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Enumeration;
-
 
 @WebServlet(urlPatterns = {"/calc/*"})
 public class CalcServlet extends HttpServlet {
@@ -133,6 +135,7 @@ public class CalcServlet extends HttpServlet {
             }
         }
 
+        // Check if there are any unresolved variables
         if (expression.matches(".*[a-zA-Z].*")) {
             throw new UndefinedVariableException("Not all variables are set.");
         }
