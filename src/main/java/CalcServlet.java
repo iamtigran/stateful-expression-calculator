@@ -16,7 +16,7 @@ public class CalcServlet extends HttpServlet {
 
     private static final int MIN_VALUE = -10000;
     private static final int MAX_VALUE = 10000;
-    private final ReentrantLock lock = new ReentrantLock();  // Added lock for synchronization
+    private final ReentrantLock lock = new ReentrantLock();  // Synchronize access to session attributes
 
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
