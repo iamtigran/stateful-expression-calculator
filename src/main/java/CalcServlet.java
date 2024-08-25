@@ -2,10 +2,13 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import java.io.IOException;
 import java.util.Enumeration;
 
+
+@WebServlet(urlPatterns = {"/calc/*"})
 public class CalcServlet extends HttpServlet {
 
     private static final int MIN_VALUE = -10000;
@@ -68,7 +71,6 @@ public class CalcServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
         String pathInfo = request.getPathInfo();
 
         if (!"/result".equals(pathInfo)) {
