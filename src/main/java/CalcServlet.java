@@ -9,12 +9,14 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.concurrent.locks.ReentrantLock;
 
 @WebServlet(urlPatterns = {"/calc/*"})
 public class CalcServlet extends HttpServlet {
 
     private static final int MIN_VALUE = -10000;
     private static final int MAX_VALUE = 10000;
+    private final ReentrantLock lock = new ReentrantLock();  // Added lock for synchronization
 
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -28,13 +30,18 @@ public class CalcServlet extends HttpServlet {
             return;
         }
 
-        if ("/expression".equals(pathInfo)) {
-            handleExpressionPut(session, response, body, request.getRequestURI());
-        } else if (pathInfo != null && pathInfo.matches("/[a-z]")) {
-            handleVariablePut(session, response, pathInfo.substring(1), body, request.getRequestURI());
-        } else {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Invalid URI.");
+        lock.lock();  // Synchronize session access
+        try {
+            if ("/expression".equals(pathInfo)) {
+                handleExpressionPut(session, response, body, request.getRequestURI());
+            } else if (pathInfo != null && pathInfo.matches("/[a-z]")) {
+                handleVariablePut(session, response, pathInfo.substring(1), body, request.getRequestURI());
+            } else {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.getWriter().write("Invalid URI.");
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -90,16 +97,21 @@ public class CalcServlet extends HttpServlet {
             return;
         }
 
+        lock.lock();  // Synchronize session access
         try {
-            int result = evaluateExpression(expression, session);
-            response.setStatus(HttpServletResponse.SC_OK);
-            response.getWriter().write(String.valueOf(result));
-        } catch (UndefinedVariableException e) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            response.getWriter().write("Not all variables are set.");
-        } catch (ScriptException | ArithmeticException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Invalid expression.");
+            try {
+                int result = evaluateExpression(expression, session);
+                response.setStatus(HttpServletResponse.SC_OK);
+                response.getWriter().write(String.valueOf(result));
+            } catch (UndefinedVariableException e) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                response.getWriter().write("Not all variables are set.");
+            } catch (ScriptException | ArithmeticException e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.getWriter().write("Invalid expression.");
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -108,20 +120,25 @@ public class CalcServlet extends HttpServlet {
         HttpSession session = request.getSession();
         String pathInfo = request.getPathInfo();
 
-        if ("/expression".equals(pathInfo)) {
-            if (session.getAttribute("expression") != null) {
-                session.removeAttribute("expression");
+        lock.lock();  // Synchronize session access
+        try {
+            if ("/expression".equals(pathInfo)) {
+                if (session.getAttribute("expression") != null) {
+                    session.removeAttribute("expression");
+                }
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            } else if (pathInfo != null && pathInfo.matches("/[a-z]")) {
+                String varName = pathInfo.substring(1);
+                if (session.getAttribute(varName) != null) {
+                    session.removeAttribute(varName);
+                }
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            } else {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.getWriter().write("Invalid URI.");
             }
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-        } else if (pathInfo != null && pathInfo.matches("/[a-z]")) {
-            String varName = pathInfo.substring(1);
-            if (session.getAttribute(varName) != null) {
-                session.removeAttribute(varName);
-            }
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-        } else {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Invalid URI.");
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -141,12 +158,16 @@ public class CalcServlet extends HttpServlet {
         }
 
         ScriptEngine engine = new ScriptEngineManager().getEngineByName("JavaScript");
-        Object result = engine.eval(expression);
+        try {
+            Object result = engine.eval(expression);
 
-        if (result instanceof Number) {
-            return ((Number) result).intValue();
-        } else {
-            throw new ScriptException("Expression did not evaluate to a number.");
+            if (result instanceof Number) {
+                return ((Number) result).intValue();
+            } else {
+                throw new ScriptException("Expression did not evaluate to a number.");
+            }
+        } catch (ArithmeticException e) {
+            throw new ScriptException("Arithmetic error: " + e.getMessage());
         }
     }
 
